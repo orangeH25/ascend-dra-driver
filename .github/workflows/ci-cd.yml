@@ -2,11 +2,18 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ pub ]     
+    branches: 
+      - pub
   pull_request:
-    branches: [ pub ]     
-  workflow_dispatch:       
-
+    branches:
+      - pub
+  workflow_dispatch: 
+    inputs:
+      version:
+        description: 'Release version (e.g., v0.1.0)'
+        required: false
+        default: 'latest'
+        
 jobs:
   ci-build:
     runs-on: ubuntu-22.04
