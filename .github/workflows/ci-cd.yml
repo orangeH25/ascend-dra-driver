@@ -1,0 +1,54 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ pub ]     
+  pull_request:
+    branches: [ pub ]     
+  workflow_dispatch:       
+
+jobs:
+  ci-build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run build script
+        run: |
+          chmod +x demo/build-driver.sh
+          ./demo/build-driver.sh
+
+  release:
+    if: github.event_name == 'workflow_dispatch'  
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.2.0
+        with:
+          version: v3.15.2
+
+      - name: Package Helm chart
+        run: |
+          mkdir -p package
+          helm package deployments/helm/ascend-dra-driver -d ./package
+          VERSION=${{ github.event.inputs.version || format('manual-{0}', github.run_id) }}
+          mv ./package/ascend-dra-driver-*.tgz ./package/ascend-dra-driver-${VERSION}.tgz
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Update install.sh with release version
+        run: |
+          VERSION=${{ env.VERSION }}
+          sed -i "s|releases/download/.*/install.sh|releases/download/${VERSION}/install.sh|g" install.sh
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            package/ascend-dra-driver-${{ env.VERSION }}.tgz
+            install.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
