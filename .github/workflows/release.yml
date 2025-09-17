@@ -1,7 +1,15 @@
 name: Release
 
+# ------------------------------------------------------------
+# This workflow does the following:
+# 1. Build Docker image from source and push it to Docker Hub
+# 2. Update Helm values.yaml and package Helm chart
+# 3. Update install.sh script with the new release version
+# 4. Create a GitHub Release and upload Helm package + install.sh
+# ------------------------------------------------------------
+
 on:
-  workflow_dispatch:  
+  workflow_dispatch:    # Allow manual triggering of the workflow
     inputs:
       version:
         description: 'Release version (e.g., v0.1.0)'
@@ -23,9 +31,9 @@ jobs:
         
       - name: Build Docker image
         run: |
+          echo "Building Docker image: ${IMAGE_NAME}:${VERSION}"
           chmod +x demo/build-driver.sh
-          DRIVER_IMAGE_TAG=${VERSION} ./demo/build-driver.sh
-          docker tag registry.example.com/${IMAGE_NAME}:v0.1.0 ${REGISTRY}/${IMAGE_NAME}:${VERSION}	
+          DRIVER_IMAGE_REGISTRY=${REGISTRY} DRIVER_IMAGE_TAG=${VERSION} ./demo/build-driver.sh
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
@@ -34,14 +42,31 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Push Docker image
-        run: docker push ${REGISTRY}/${IMAGE_NAME}:${VERSION}
+        run: |
+          MAX_RETRIES=3
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i: pushing Docker image ${REGISTRY}/${IMAGE_NAME}:${VERSION}..."
+            if docker push ${REGISTRY}/${IMAGE_NAME}:${VERSION}; then
+              echo "Docker push succeeded on attempt $i"
+              break
+            else
+              echo "Docker push failed on attempt $i"
+              if [ $i -eq $MAX_RETRIES ]; then
+                echo "Reached max retries, exiting."
+                exit 1
+              fi
+              echo "Retrying in 5 seconds..."
+              sleep 5
+            fi
+          done
+
           
       - name: Set up Helm
         uses: azure/setup-helm@v4.2.0
         with:
           version: v3.15.2
 
-      - name: Prepare Helm values.yaml
+      - name: Prepare Helm values.yaml    # Replace test values with release values
         run: |
           mkdir -p tmp-helm
           cp deployments/helm/ascend-dra-driver/values.yaml tmp-helm/values.yaml
@@ -56,17 +81,24 @@ jobs:
             -d ./package
           mv ./package/ascend-dra-driver-*.tgz ./package/ascend-dra-driver-${VERSION}.tgz
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          rm -rf tmp-helm
+          echo "Helm chart package: package/ascend-dra-driver-${VERSION}.tgz"
 
       - name: Update install.sh with release version
         run: |
-          VERSION=${{ env.VERSION }}
-          sed -i "s|releases/download/.*/install.sh|releases/download/${VERSION}/install.sh|g" install.sh
+          cp install.sh install-release.sh
+          sed -i "s|VERSION=\${1:-latest}|VERSION=${VERSION}|g" install-release.sh
+          echo "Updated install.sh for release version ${VERSION}"
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
             package/ascend-dra-driver-${{ env.VERSION }}.tgz
-            install.sh
+          file-name-map: | 
+            install-release.sh:install.sh  
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log release upload
+        run: echo "Uploading release assets..."          
