@@ -29,6 +29,8 @@ jobs:
       REGISTRY: docker.io/orangeh
       VERSION: ${{ github.event.inputs.version }}
       IS_LATEST: ${{ github.event.inputs.is_latest }}
+      OWNER: ${{ github.repository_owner }}
+      REPO_NAME: ${{ github.event.repository.name }}
     
     steps:
       - name: Checkout code
@@ -93,6 +95,8 @@ jobs:
       - name: Update install.sh with release version
         run: |
           sed -i "s|VERSION=\${1:-latest}|VERSION=${VERSION}|g" install.sh
+          sed -i "s|OWNER=.*|OWNER=${OWNER}|g" install.sh
+          sed -i "s|REPO_NAME=.*|REPO_NAME=${REPO_NAME}|g" install.sh
           echo "Updated install.sh for release version ${VERSION}"
 
       - name: Update latest tag if requested
