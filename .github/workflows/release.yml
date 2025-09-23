@@ -13,8 +13,12 @@ on:
     inputs:
       version:
         description: 'Release version (e.g., v0.1.0)'
-        required: false
-        default: 'latest'
+        required: true
+      is_latest:
+        description: 'Mark this release as latest?'
+        type: boolean
+        required: true
+        default: false
 
 jobs:
   release:
@@ -23,7 +27,8 @@ jobs:
     env:
       IMAGE_NAME: ascend-dra-driver
       REGISTRY: docker.io/orangeh
-      VERSION: ${{ github.event.inputs.version || format('manual-{0}', github.run_id) }}
+      VERSION: ${{ github.event.inputs.version }}
+      IS_LATEST: ${{ github.event.inputs.is_latest }}
     
     steps:
       - name: Checkout code
@@ -65,7 +70,6 @@ jobs:
               sleep 5
             fi
           done
-
           
       - name: Set up Helm
         uses: azure/setup-helm@v4.2.0
@@ -84,7 +88,6 @@ jobs:
             -d ./package
           mv ./package/ascend-dra-driver-*.tgz ./package/ascend-dra-driver-${VERSION}.tgz
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          rm -rf tmp-helm
           echo "Helm chart package: package/ascend-dra-driver-${VERSION}.tgz"
 
       - name: Update install.sh with release version
@@ -92,11 +95,22 @@ jobs:
           sed -i "s|VERSION=\${1:-latest}|VERSION=${VERSION}|g" install.sh
           echo "Updated install.sh for release version ${VERSION}"
 
+      - name: Update latest tag if requested
+        if: env.IS_LATEST == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f latest
+          git push origin latest --force
+
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.VERSION }}
+          name: Release ${{ env.VERSION }}
           files: |
             package/ascend-dra-driver-${{ env.VERSION }}.tgz
             install.sh
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
