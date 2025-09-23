@@ -34,10 +34,7 @@ jobs:
           echo "Building Docker image: ${IMAGE_NAME}:${VERSION}"
           chmod +x demo/build-driver.sh
           DRIVER_IMAGE_REGISTRY=${REGISTRY} DRIVER_IMAGE_TAG=${VERSION} ./demo/build-driver.sh
-
-      - name: List Docker images
-        run: |
-          echo "Show build image:"
+          echo "List Docker images"
           docker images | grep "${IMAGE_NAME}"
 
       - name: Retag image
@@ -92,8 +89,7 @@ jobs:
 
       - name: Update install.sh with release version
         run: |
-          cp install.sh install-release.sh
-          sed -i "s|VERSION=\${1:-latest}|VERSION=${VERSION}|g" install-release.sh
+          sed -i "s|VERSION=\${1:-latest}|VERSION=${VERSION}|g" install.sh
           echo "Updated install.sh for release version ${VERSION}"
 
       - name: Upload Release Assets
@@ -101,10 +97,6 @@ jobs:
         with:
           files: |
             package/ascend-dra-driver-${{ env.VERSION }}.tgz
-          file-name-map: | 
-            install-release.sh:install.sh  
+            install.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Log release upload
-        run: echo "Uploading release assets..."          
