@@ -22,7 +22,7 @@ jobs:
     if: github.repository == 'orangeH25/ascend-dra-driver'
     env:
       IMAGE_NAME: ascend-dra-driver
-      REGISTRY: docker.io/orangeH25
+      REGISTRY: docker.io/orangeh
       VERSION: ${{ github.event.inputs.version || format('manual-{0}', github.run_id) }}
     
     steps:
