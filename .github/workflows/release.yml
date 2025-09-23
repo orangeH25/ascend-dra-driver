@@ -77,16 +77,13 @@ jobs:
 
       - name: Prepare Helm values.yaml    # Replace test values with release values
         run: |
-          mkdir -p tmp-helm
-          cp deployments/helm/ascend-dra-driver/values.yaml tmp-helm/values.yaml
-          sed -i "s|repository: .*|repository: ${REGISTRY}/${IMAGE_NAME}|g" tmp-helm/values.yaml
-          sed -i "s|tag: .*|tag: ${VERSION}|g" tmp-helm/values.yaml
+          sed -i "s|repository: .*|repository: ${REGISTRY}/${IMAGE_NAME}|g" deployments/helm/ascend-dra-driver/values.yaml
+          sed -i "s|tag: .*|tag: ${VERSION}|g" deployments/helm/ascend-dra-driver/values.yaml
 
       - name: Package Helm chart
         run: |
           mkdir -p package
           helm package deployments/helm/ascend-dra-driver \
-            -f tmp-helm/values.yaml \
             -d ./package
           mv ./package/ascend-dra-driver-*.tgz ./package/ascend-dra-driver-${VERSION}.tgz
           echo "VERSION=$VERSION" >> $GITHUB_ENV
