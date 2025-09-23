@@ -35,6 +35,12 @@ jobs:
           chmod +x demo/build-driver.sh
           DRIVER_IMAGE_REGISTRY=${REGISTRY} DRIVER_IMAGE_TAG=${VERSION} ./demo/build-driver.sh
 
+      - name: List Docker images
+        run: |
+          echo "Show build image:"
+          docker images | grep "${IMAGE_NAME}"
+
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
