@@ -1,28 +1,32 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-NAMESPACE=ascend-dra-driver
-
-OWNER=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f1)
-REPO_NAME=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
-
-VERSION=${1:-latest}
+OWNER=${OWNER:-cosdt}
+REPO_NAME=${REPO_NAME:-ascend-dra-driver}
+NAMESPACE=${NAMESPACE:-ascend-dra-driver}
+VERSION=${VERSION:-latest}
 
 if [ "$VERSION" = "latest" ]; then
-  echo "Fetching latest release version..."
+  echo "Fetching latest release version from $OWNER/$REPO_NAME..."
   VERSION=$(curl -s https://api.github.com/repos/$OWNER/$REPO_NAME/releases/latest \
     | grep '"tag_name":' \
-    | sed -E 's/.*"([^"]+)".*/\1/')
+    | sed -E 's/.*"([^"]+)".*/\1/') || {
+      echo "❌ Failed to fetch latest release version."
+      exit 1
+    }
 fi
 
-echo "Installing Ascend DRA Driver version $VERSION..."
+ARCHIVE="ascend-dra-driver-${VERSION}.tgz"
+BASE_URL="https://github.com/${OWNER}/${REPO_NAME}/releases/download/${VERSION}"
 
-REPO="https://github.com/$OWNER/$REPO_NAME/releases/download/$VERSION"
+echo "🚀 Installing Ascend DRA Driver ${VERSION} into namespace ${NAMESPACE}..."
 
-curl -L -o ascend-dra-driver-$VERSION.tgz $REPO/ascend-dra-driver-$VERSION.tgz
+curl -sSL -o "$ARCHIVE" "${BASE_URL}/${ARCHIVE}"
 
 helm upgrade -i \
   --create-namespace \
   --namespace $NAMESPACE \
-  ascend-dra-driver \
-  ./ascend-dra-driver-$VERSION.tgz
+  "$REPO_NAME" \
+  "./${ARCHIVE}"
+
+echo "✅ Ascend DRA Driver ${VERSION} installed successfully."
