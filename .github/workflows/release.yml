@@ -26,6 +26,7 @@ jobs:
     if: github.repository == 'orangeH25/ascend-dra-driver'
     env:
       IMAGE_NAME: ascend-dra-driver
+      NAMESPACE: ascend-dra-driver
       REGISTRY: docker.io/orangeh
       VERSION: ${{ github.event.inputs.version }}
       IS_LATEST: ${{ github.event.inputs.is_latest }}
@@ -97,6 +98,7 @@ jobs:
           sed -i "s|VERSION=\${1:-latest}|VERSION=${VERSION}|g" install.sh
           sed -i "s|OWNER=.*|OWNER=${OWNER}|g" install.sh
           sed -i "s|REPO_NAME=.*|REPO_NAME=${REPO_NAME}|g" install.sh
+          sed -i "s|NAMESPACE=.*|NAMESPACE=${NAMESPACE}|g" install.sh
           echo "Updated install.sh for release version ${VERSION}"
 
       - name: Update latest tag if requested
