@@ -95,7 +95,7 @@ jobs:
 
       - name: Update install.sh with release version
         run: |
-          sed -i "s|VERSION=\${1:-latest}|VERSION=${VERSION}|g" install.sh
+          sed -i "s|VERSION=.*|VERSION=${VERSION}|g" install.sh
           sed -i "s|OWNER=.*|OWNER=${OWNER}|g" install.sh
           sed -i "s|REPO_NAME=.*|REPO_NAME=${REPO_NAME}|g" install.sh
           sed -i "s|NAMESPACE=.*|NAMESPACE=${NAMESPACE}|g" install.sh
