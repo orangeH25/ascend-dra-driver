@@ -1,15 +1,16 @@
 name: Release
 
 # ------------------------------------------------------------
-# This workflow does the following:
-# 1. Build Docker image from source and push it to Docker Hub
-# 2. Update Helm values.yaml and package Helm chart
-# 3. Update install.sh script with the new release version
-# 4. Create a GitHub Release and upload Helm package + install.sh
+# Workflow Steps:
+# 1. Run "make docker-generate" to ensure CRDs/artifacts are fresh
+# 2. Build and push Docker multi-arch image (amd64 + arm64) to Docker Hub
+# 3. Update Helm values.yaml and package Helm chart
+# 4. Update install.sh script with the new release version
+# 5. Create GitHub Release and upload Helm chart + install.sh
 # ------------------------------------------------------------
 
 on:
-  workflow_dispatch:    # Allow manual triggering of the workflow
+  workflow_dispatch:
     inputs:
       version:
         description: 'Release version (e.g., v0.1.0)'
@@ -32,67 +33,68 @@ jobs:
       IS_LATEST: ${{ github.event.inputs.is_latest }}
       OWNER: ${{ github.repository_owner }}
       REPO_NAME: ${{ github.event.repository.name }}
-    
+
     steps:
+      # Checkout repo code
       - name: Checkout code
         uses: actions/checkout@v4
-        
-      - name: Build Docker image
-        run: |
-          echo "Building Docker image: ${IMAGE_NAME}:${VERSION}"
-          chmod +x demo/build-driver.sh
-          DRIVER_IMAGE_REGISTRY=${REGISTRY} DRIVER_IMAGE_TAG=${VERSION} ./demo/build-driver.sh
-          echo "List Docker images"
-          docker images | grep "${IMAGE_NAME}"
 
-      - name: Retag image
-        run: |
-          docker tag ${IMAGE_NAME}:${VERSION} ${REGISTRY}/${IMAGE_NAME}:${VERSION}
+      # Generate CRDs / artifacts (safe to always run)
+      - name: Generate build artifacts
+        run: make docker-generate
 
+      # Log in to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Push Docker image
-        run: |
-          MAX_RETRIES=3
-          for i in $(seq 1 $MAX_RETRIES); do
-            echo "Attempt $i: pushing Docker image ${REGISTRY}/${IMAGE_NAME}:${VERSION}..."
-            if docker push ${REGISTRY}/${IMAGE_NAME}:${VERSION}; then
-              echo "Docker push succeeded on attempt $i"
-              break
-            else
-              echo "Docker push failed on attempt $i"
-              if [ $i -eq $MAX_RETRIES ]; then
-                echo "Reached max retries, exiting."
-                exit 1
-              fi
-              echo "Retrying in 5 seconds..."
-              sleep 5
-            fi
-          done
-          
+      # Enable Docker Buildx for multi-arch support
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build and push multi-arch image (amd64 + arm64)
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deployments/container/Dockerfile   # adjust path if different
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${REGISTRY}/${IMAGE_NAME}:${VERSION}
+          build-args: |
+            GOLANG_VERSION=1.23.1
+            BASE_IMAGE=docker.io/ubuntu:22.04
+            VERSION=${VERSION}
+
+      # Verify image manifest
+      - name: Check image manifest
+        run: docker buildx imagetools inspect ${REGISTRY}/${IMAGE_NAME}:${VERSION}
+
+      # Install Helm CLI
       - name: Set up Helm
         uses: azure/setup-helm@v4.2.0
         with:
           version: v3.15.2
 
-      - name: Prepare Helm values.yaml    # Replace test values with release values
+      # Update Helm chart values with release image + version
+      - name: Prepare Helm values.yaml
         run: |
           sed -i "s|repository: .*|repository: ${REGISTRY}/${IMAGE_NAME}|g" deployments/helm/ascend-dra-driver/values.yaml
           sed -i "s|tag: .*|tag: ${VERSION}|g" deployments/helm/ascend-dra-driver/values.yaml
 
+      # Package Helm chart
       - name: Package Helm chart
         run: |
           mkdir -p package
-          helm package deployments/helm/ascend-dra-driver \
-            -d ./package
+          helm package deployments/helm/ascend-dra-driver -d ./package
           mv ./package/ascend-dra-driver-*.tgz ./package/ascend-dra-driver-${VERSION}.tgz
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "Helm chart package: package/ascend-dra-driver-${VERSION}.tgz"
 
+      # Update install.sh with release variables
       - name: Update install.sh with release version
         run: |
           sed -i "0,/^VERSION=.*/s|^VERSION=.*|VERSION=${VERSION}|" install.sh
@@ -101,6 +103,7 @@ jobs:
           sed -i "0,/^NAMESPACE=.*/s|^NAMESPACE=.*|NAMESPACE=${NAMESPACE}|" install.sh
           echo "Updated install.sh for release version ${VERSION}"
 
+      # Update/move 'latest' Git tag if requested
       - name: Update latest tag if requested
         if: env.IS_LATEST == 'true'
         run: |
@@ -109,6 +112,7 @@ jobs:
           git tag -f latest
           git push origin latest --force
 
+      # Upload release assets under versioned tag
       - name: Upload Release Assets (versioned)
         uses: softprops/action-gh-release@v2
         with:
@@ -121,6 +125,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Upload release assets also under 'latest' tag
       - name: Upload Release Assets (latest)
         if: env.IS_LATEST == 'true'
         uses: softprops/action-gh-release@v2
