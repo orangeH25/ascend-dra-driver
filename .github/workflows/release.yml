@@ -95,10 +95,10 @@ jobs:
 
       - name: Update install.sh with release version
         run: |
-          sed -i "s|VERSION=.*|VERSION=${VERSION}|g" install.sh
-          sed -i "s|OWNER=.*|OWNER=${OWNER}|g" install.sh
-          sed -i "s|REPO_NAME=.*|REPO_NAME=${REPO_NAME}|g" install.sh
-          sed -i "s|NAMESPACE=.*|NAMESPACE=${NAMESPACE}|g" install.sh
+          sed -i "0,/^VERSION=.*/s|^VERSION=.*|VERSION=${VERSION}|" install.sh
+          sed -i "0,/^OWNER=.*/s|^OWNER=.*|OWNER=${OWNER}|" install.sh
+          sed -i "0,/^REPO_NAME=.*/s|^REPO_NAME=.*|REPO_NAME=${REPO_NAME}|" install.sh
+          sed -i "0,/^NAMESPACE=.*/s|^NAMESPACE=.*|NAMESPACE=${NAMESPACE}|" install.sh
           echo "Updated install.sh for release version ${VERSION}"
 
       - name: Update latest tag if requested
