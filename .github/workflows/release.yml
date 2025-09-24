@@ -109,11 +109,24 @@ jobs:
           git tag -f latest
           git push origin latest --force
 
-      - name: Upload Release Assets
+      - name: Upload Release Assets (versioned)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION }}
           name: Release ${{ env.VERSION }}
+          files: |
+            package/ascend-dra-driver-${{ env.VERSION }}.tgz
+            install.sh
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Assets (latest)
+        if: env.IS_LATEST == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Release latest
           files: |
             package/ascend-dra-driver-${{ env.VERSION }}.tgz
             install.sh
