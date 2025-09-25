@@ -3,17 +3,17 @@ name: CI Build
 on:
   push:
     branches:
-      - main
+      - '**'
   pull_request:
     branches:
-      - main
+      - '**'
 
 jobs:
   ci-build:
     runs-on: ubuntu-22.04
     env:
       IMAGE_NAME: ascend-dra-driver
-      REGISTRY: docker.io/orangeh
+      REGISTRY: ${{ vars.DOCKER_REGISTRY }}/${{ vars.DOCKER_REPO }}
       VERSION: ci-${{ github.sha }}
       OWNER: ${{ github.repository_owner }}
       REPO_NAME: ${{ github.event.repository.name }}
