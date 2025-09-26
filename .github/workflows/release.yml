@@ -3,7 +3,7 @@ name: Release
 # ------------------------------------------------------------
 # Workflow Steps:
 # 1. Run "make docker-generate" to ensure CRDs/artifacts are fresh
-# 2. Build and push Docker multi-arch image (amd64 + arm64) to Docker Hub
+# 2. Build and push Docker multi-arch image (amd64 + arm64) to Quay Hub
 # 3. Update Helm values.yaml and package Helm chart
 # 4. Update install.sh script with the new release version
 # 5. Create GitHub Release and upload Helm chart + install.sh
@@ -27,7 +27,7 @@ jobs:
     env:
       IMAGE_NAME: ascend-dra-driver
       NAMESPACE: ascend-dra-driver
-      REGISTRY: ${{ vars.DOCKER_REGISTRY }}/${{ vars.DOCKER_REPO }}
+      REGISTRY: ${{ vars.QUAY_REGISTRY }}/${{ vars.QUAY_REPO }}
       VERSION: ${{ github.event.inputs.version }}
       IS_LATEST: ${{ github.event.inputs.is_latest }}
       OWNER: ${{ github.repository_owner }}
@@ -42,12 +42,13 @@ jobs:
       - name: Generate build artifacts
         run: make docker-generate
 
-      # Log in to Docker Hub
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
+      # Log in to Quay Hub
+      - name: Log in to Quay.io
+        uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
 
       # Enable Docker Buildx for multi-arch support
       - name: Set up Docker Buildx
