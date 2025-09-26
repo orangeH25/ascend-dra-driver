@@ -25,7 +25,7 @@ jobs:
   release:
     runs-on: ubuntu-22.04
     env:
-      IMAGE_NAME: ascend-dra-driver
+      IMAGE_NAME: dra-driver
       NAMESPACE: ascend-dra-driver
       REGISTRY: ${{ vars.QUAY_REGISTRY }}/${{ vars.QUAY_REPO }}
       VERSION: ${{ github.event.inputs.version }}
